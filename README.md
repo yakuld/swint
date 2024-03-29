@@ -1,1 +1,1 @@
-Deepfake detection using SwinTransformer and CLIP
+Towards generalization of Forgery detectors 
