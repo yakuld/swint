@@ -7,6 +7,8 @@ import torch
 from PIL import Image
 import torch.utils.data as data
 
+torch.cuda.empty_cache()
+
 try:
     import lmdb
     import pyarrow as pa
@@ -72,6 +74,7 @@ def load_image(root_path, directory, image_tmpl, idx, modality):
     def _safe_load_image(img_path):
         img = None
         num_try = 0
+        # print('hi')
         while num_try < 10:
             try:
                 img_tmp = Image.open(img_path)
@@ -86,18 +89,25 @@ def load_image(root_path, directory, image_tmpl, idx, modality):
             raise ValueError('[Fail 10 times] error loading image: {}'.format(img_path))
         return img
 
+    # f = open( '/home/yakul/dfd/code/swint/test.txt', 'w' )
+    # f.write(root_path +"  "+ directory)
+    # f.close()
     if not isinstance(idx, list):
         idx = [idx]
     out = []
     if modality == 'rgb':
         for i in idx:
-            image_path_file = os.path.join(root_path, directory, image_tmpl.format(i))
+            pth = root_path + directory
+            image_path_file = os.path.join(pth, image_tmpl.format(i))
+            # print(image_path_file)
             out.append(_safe_load_image(image_path_file))
     elif modality == 'rgbdiff':
         tmp = {}
         new_idx = np.unique(np.concatenate((np.asarray(idx), np.asarray(idx) + 1)))
         for i in new_idx:
+
             image_path_file = os.path.join(root_path, directory, image_tmpl.format(i))
+            # print(image_path_file)
             tmp[i] = _safe_load_image(image_path_file)
         for k in idx:
             img_ = compute_img_diff(tmp[k + 1], tmp[k])
@@ -386,7 +396,7 @@ class VideoDataSet(data.Dataset):
             raise ValueError("modality should be 'flow' or 'rgb' or 'rgbdiff' or 'sound'.")
 
         self.root_path = root_path
-        self.list_file = os.path.join(root_path, list_file)
+        self.list_file = list_file
         self.num_groups = num_groups
         self.num_frames = num_groups
         self.frames_per_group = frames_per_group

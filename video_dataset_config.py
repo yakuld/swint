@@ -3,11 +3,11 @@
 DATASET_CONFIG = {
     'ffpp': {
         'num_classes': 2,
-        'train_list_name': 'cdf_test_fold.txt',
-        'val_list_name': 'cdf_test_fold.txt',
-        'test_list_name': 'cdf_test_fold.txt',
+        'train_list_name': 'train.txt',
+        'val_list_name': 'val.txt',
+        'test_list_name': 'test.txt',
         'filename_seperator': " ",
-        'image_tmpl': '{:04d}.jpg',
+        'image_tmpl': '{:05d}.jpg',
         'filter_video': 3,
     }
 }

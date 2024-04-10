@@ -19,18 +19,18 @@ import utils
 from sklearn.metrics import roc_auc_score
 import clip
 
-clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
+# clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
 
-class ContrastiveLoss(nn.Module):
-    def __init__(self, margin):
-        super(ContrastiveLoss, self).__init__()
-        self.margin = margin
+# class ContrastiveLoss(nn.Module):
+#     def __init__(self, margin):
+#         super(ContrastiveLoss, self).__init__()
+#         self.margin = margin
 
-    def forward(self, output1, output2, target):
-        euclidean_distance = F.pairwise_distance(output1, output2, keepdim = True)
-        loss_contrastive = torch.mean((1-target) * torch.pow(euclidean_distance, 2) +
-                                      (target) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
-        return loss_contrastive
+#     def forward(self, output1, output2, target):
+#         euclidean_distance = F.pairwise_distance(output1, output2, keepdim = True)
+#         loss_contrastive = torch.mean((1-target) * torch.pow(euclidean_distance, 2) +
+#                                       (target) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
+#         return loss_contrastive
     
 
 
@@ -53,7 +53,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 50
 
-    criterion2 = ContrastiveLoss(1)
+    # criterion2 = ContrastiveLoss(1)
 
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
         
@@ -62,9 +62,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        images = preprocess(samples.unsqueeze(0).to(device))    #Load data for CLIP
-        with torch.no_grad():
-            embd = clip_model.encode_image(images)                   #Generates the embeddings
+        # images = preprocess(samples.unsqueeze(0).to(device))    #Load data for CLIP
+        # with torch.no_grad():
+        #     embd = clip_model.encode_image(images)                   #Generates the embeddings
 
         if mixup_fn is not None:
             # batch size has to be an even number
@@ -75,14 +75,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             samples, targets = mixup_fn(samples, targets)
 
 
-        contrastive_loss = criterion2(embd, targets)    #Calculating loss
+        # contrastive_loss = criterion2(embd, targets)    #Calculating loss
 
         with torch.cuda.amp.autocast(enabled=amp):
             
             outputs = model(samples)
             outputs = outputs.reshape(batch_size, num_cilps, -1).mean(dim=1) 
 
-            loss = criterion(outputs, targets) + contrastive_loss
+            loss = criterion(outputs, targets) #+ contrastive_loss
 
 
         loss_value = loss.item()

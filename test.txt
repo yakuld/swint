@@ -1,0 +1,1 @@
+/home/yakul/dfd/train_set/video_frames  /videos/video_4152_folder

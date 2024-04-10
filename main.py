@@ -38,8 +38,8 @@ def get_args_parser():
     parser.add_argument('--epochs', default=30, type=int)
 
     # Dataset parameters
-    parser.add_argument('--data_txt_dir', type=str,default='##path_for_dataset_txt##', help='path to text of dataset')
-    parser.add_argument('--data_dir', type=str,default="##path_for_dataset##", help='path to dataset')
+    parser.add_argument('--data_txt_dir', type=str,default='/home/yakul/dfd/train_set/video_frames', help='path to text of dataset')
+    parser.add_argument('--data_dir', type=str,default="/home/yakul/dfd/train_set/video_frames", help='path to dataset')
     parser.add_argument('--dataset', default='ffpp_train',
                         choices=list(DATASET_CONFIG.keys()), help='path to dataset file list')
     parser.add_argument('--duration', default=8, type=int, help='number of frames')
