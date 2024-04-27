@@ -2,10 +2,14 @@ import argparse
 import datetime
 import numpy as np
 import time
+import os
+
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
 import torch
 import torch.backends.cudnn as cudnn
 import json
-import os
 import warnings
 
 from pathlib import Path
@@ -38,8 +42,8 @@ def get_args_parser():
     parser.add_argument('--epochs', default=30, type=int)
 
     # Dataset parameters
-    parser.add_argument('--data_txt_dir', type=str,default='/home/yakul/dfd/train_set/video_frames', help='path to text of dataset')
-    parser.add_argument('--data_dir', type=str,default="/home/yakul/dfd/train_set/video_frames", help='path to dataset')
+    parser.add_argument('--data_txt_dir', type=str,default='/home/yakul/dataset/DFDC/video_frames', help='path to text of dataset')
+    parser.add_argument('--data_dir', type=str,default="/home/yakul/dataset/DFDC/video_frames", help='path to dataset')
     parser.add_argument('--dataset', default='ffpp_train',
                         choices=list(DATASET_CONFIG.keys()), help='path to dataset file list')
     parser.add_argument('--duration', default=8, type=int, help='number of frames')

@@ -1,14 +1,14 @@
 #!/bin/bash
-path_real=./train_set/Celeb-real
-path_fake=./train_set/Celeb-synthesis
-output_path=./train_set/video_frames/videos
+path_real=../../../dataset/DFDC/REAL
+path_fake=../../../dataset/DFDC/FAKE
+output_path=../../../dataset/DFDC/video_frames/videos
 
-rm -rf ./train_set/video_frames/*
-mkdir ./train_set/video_frames/videos
+rm -rf ../../../dataset/DFDC/video_frames/*
+mkdir ../../../dataset/DFDC/video_frames/videos
 
-touch ./train_set/video_frames/train.txt
-touch ./train_set/video_frames/val.txt
-touch ./train_set/video_frames/test.txt
+touch ../../../dataset/DFDC/video_frames/train.txt
+touch ../../../dataset/DFDC/video_frames/val.txt
+touch ../../../dataset/DFDC/video_frames/test.txt
 
 count_r=$(ls $path_real | wc -w)
 count_f=$(ls $path_fake | wc -w)
@@ -27,16 +27,16 @@ i=0
 for file in $(ls ${path_real} | shuf);
 do
 	mkdir ${output_path}/video_${i}_folder
-	ffmpeg -i ${path_real}/${file} -vf "scale=-1:256" -loglevel panic -q:v 0 ${output_path}/video_${i}_folder/%05d.jpg
+	ffmpeg -i ${path_real}/${file} -vf "scale=iw:-1" -loglevel panic -q:v 0 ${output_path}/video_${i}_folder/%05d.jpg
 	
 	if [ $i -lt $count_val_r ]
 	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ./train_set/video_frames/val.txt
+		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ../../../dataset/DFDC/video_frames/val.txt
 	elif [ $i -lt $count_val_r2 ]
 	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ./train_set/video_frames/test.txt
+		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ../../../dataset/DFDC/video_frames/test.txt
 	else
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ./train_set/video_frames/train.txt
+		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ../../../dataset/DFDC/video_frames/train.txt
 	fi
 	
 	let "i = i + 1"
@@ -48,16 +48,16 @@ j=0
 for file in $(ls ${path_fake} | shuf);
 do
 	mkdir ${output_path}/video_${i}_folder
-	ffmpeg -i ${path_fake}/${file} -vf "scale=-1:256" -loglevel panic -q:v 0 ${output_path}/video_${i}_folder/%05d.jpg
+	ffmpeg -i ${path_fake}/${file} -vf "scale=iw:-1" -loglevel panic -q:v 0 ${output_path}/video_${i}_folder/%05d.jpg
 	
 	if [ $j -lt $count_val_f ]
 	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ./train_set/video_frames/val.txt
+		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ../../../dataset/DFDC/video_frames/val.txt
 	elif [ $j -lt $count_val_f2 ]
 	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ./train_set/video_frames/test.txt
+		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ../../../dataset/DFDC/video_frames/test.txt
 	else
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ./train_set/video_frames/train.txt
+		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ../../../dataset/DFDC/video_frames/train.txt
 	fi
 	
 	let "i = i + 1"
@@ -66,4 +66,4 @@ done
 
 echo "Done"
 
-
+sed -i 's$../../../dataset/DFDC/video_frames$$g' ../../../dataset/DFDC/video_frames/*.txt

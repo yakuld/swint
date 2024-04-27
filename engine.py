@@ -17,7 +17,7 @@ from timm.data import Mixup
 from timm.utils import accuracy, ModelEma
 import utils
 from sklearn.metrics import roc_auc_score
-import clip
+# import clip
 
 # clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
 
