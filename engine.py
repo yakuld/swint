@@ -34,9 +34,9 @@ from sklearn.metrics import roc_auc_score
     
 
 
-def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
-                    data_loader: Iterable, num_cilps:int, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
+def train_one_epoch(model: torch.nn.Module,model_effnet: torch.nn.Module, criterion: torch.nn.Module,
+                    data_loader: Iterable, num_cilps:int, optimizer: torch.optim.Optimizer, optimizer_effnet: torch.optim.Optimizer,
+                    device: torch.device, epoch: int, loss_scaler, loss_scaler_effnet, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
                     world_size: int = 1, distributed: bool = True, amp=True,
                     contrastive_nomixup=False, hard_contrastive=False,
@@ -47,6 +47,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         model.train(not finetune)
     else:
         model.train()
+        model_effnet.train()
     #criterion.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.8f}'))
@@ -80,14 +81,22 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         with torch.cuda.amp.autocast(enabled=amp):
             
             outputs = model(samples)
+            outputs_effnet = model_effnet(samples)
+            # print('Outputs shape: {}'.format(outputs.shape))
             outputs = outputs.reshape(batch_size, num_cilps, -1).mean(dim=1) 
-
+            outputs_effnet = outputs_effnet.reshape(batch_size, num_cilps * 4, -1).mean(dim=1) 
+            # print('Outputs shape after reshape: {}'.format(outputs.shape))
+            # print('Target shape: {}'.format(targets.shape))
             loss = criterion(outputs, targets) #+ contrastive_loss
+            loss_effnet = criterion(outputs_effnet, targets)
+            average_loss = loss*0.5 + loss_effnet*0.5
 
 
         loss_value = loss.item()
-
+        loss_value_effnet = loss_effnet.item()
+        avergae_loss_value = average_loss.item()
         optimizer.zero_grad()
+        optimizer_effnet.zero_grad()
 
         # this attribute is added by timm on one optimizer (adahessian)
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
@@ -96,25 +105,28 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             loss_scaler(loss, optimizer, clip_grad=max_norm,
                         parameters=model.parameters(), create_graph=is_second_order)
         else:
-            loss.backward(create_graph=is_second_order)
+            average_loss.backward(create_graph=is_second_order)
             if max_norm is not None and max_norm != 0.0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+                torch.nn.utils.clip_grad_norm_(model_effnet.parameters(), max_norm)
             optimizer.step()
+            optimizer_effnet.step()
 
         torch.cuda.synchronize()
         if model_ema is not None:
             model_ema.update(model)
 
-        metric_logger.update(loss=loss_value)
+        metric_logger.update(loss=avergae_loss_value)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
+    print('SwinTransformer loss: {} , EfficientNet loss: {} , Average loss: {}'.format(loss_value, loss_value_effnet, avergae_loss_value))
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device, world_size, distributed=True, amp=False, num_crops=1, num_clips=1):
+def evaluate(data_loader, model, model_effnet, device, world_size, distributed=True, amp=False, num_crops=1, num_clips=1):
     criterion = torch.nn.CrossEntropyLoss()
     to_np = lambda x: x.data.cpu().numpy()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -122,6 +134,7 @@ def evaluate(data_loader, model, device, world_size, distributed=True, amp=False
 
     # switch to evaluation mode
     model.eval()
+    model_effnet.eval()
 
     outputs = []
     targets = []
@@ -137,8 +150,11 @@ def evaluate(data_loader, model, device, world_size, distributed=True, amp=False
         with torch.cuda.amp.autocast(enabled=amp):
 
             output = model(images)
+            output_effnet = model_effnet(images)
 
         output = output.reshape(batch_size, num_crops * num_clips, -1).mean(dim=1)
+        output_effnet = output_effnet.reshape(batch_size, num_clips * 4, -1).mean(dim=1) 
+        output = (output + output_effnet) / 2
         output_np = to_np(output[:,1])
 
         

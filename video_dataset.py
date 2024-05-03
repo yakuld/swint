@@ -340,6 +340,7 @@ def sample_val_test_clip(video_length, num_consecutive_frames, num_frames, sampl
                 frame_idx = np.sort(frame_idx)
                 frame_idices.extend(frame_idx.tolist())
         frame_idx = np.asarray(frame_idices) + 1
+        # print('Video frames input shape: {}'.format(len(frame_idx)))
     return frame_idx
 
 

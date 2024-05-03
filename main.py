@@ -11,6 +11,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import json
 import warnings
+from torchvision import transforms
 
 from pathlib import Path
 
@@ -222,7 +223,8 @@ def get_args_parser():
     # parser.add_argument('--simclr_w', type=float, default=0., help='weights for simclr loss')
     parser.add_argument('--contrastive_nomixup', action='store_true', help='do not involve mixup in contrastive learning')
     parser.add_argument('--finetune', default=False, help='finetune model')
-    parser.add_argument('--initial_checkpoint', type=str, default='', help='path to the pretrained model')
+    parser.add_argument('--initial_checkpoint_swin', type=str, default='', help='path to the pretrained Swin model')
+    parser.add_argument('--initial_checkpoint_effnt', type=str, default='', help='path to the pretrained EfficientNet model')
 
     parser.add_argument('--hard_contrastive', action='store_true', help='use HEXA')
     # parser.add_argument('--selfdis_w', type=float, default=0., help='enable self distillation')
@@ -288,9 +290,17 @@ def main(args):
         use_checkpoint=args.use_checkpoint
     )
 
+    print(f"Creating model: EfficientNet")
+    model_effnet =create_model(
+        'EfficientNet',
+        pretrained=True,
+        duration=args.duration,
+    )
+
     # TODO: finetuning
 
     model.to(device)
+    model_effnet.to(device)
 
     model_ema = None
     if args.model_ema:
@@ -302,18 +312,22 @@ def main(args):
             resume=args.resume)
 
     model_without_ddp = model
+    model_without_ddp_effnet = model_effnet
     if args.distributed:
         #model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_parameters += sum(p.numel() for p in model_effnet.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
 
-
     optimizer = create_optimizer(args, model)
+    optimizer_effnet = create_optimizer(args, model_effnet)
     loss_scaler = NativeScaler()
+    loss_scaler_effnet = NativeScaler()
     #print(f"Scaled learning rate (batch size: {args.batch_size * utils.get_world_size()}): {linear_scaled_lr}")
     lr_scheduler, _ = create_scheduler(args, optimizer)
+    lr_scheduler_effnet, _ = create_scheduler(args, optimizer_effnet)
 
     criterion = LabelSmoothingCrossEntropy()
 
@@ -344,11 +358,18 @@ def main(args):
                                 dense_sampling=args.dense_sampling,
                                 transform=train_augmentor, is_train=True, test_mode=False,
                                 seperator=filename_seperator, filter_video=filter_video)
+    
+    # inputs, targets = next(iter(dataset_train))
+    # print('Input shape of tensor: {}'.format(inputs.shape))
+
+
+    # quit()
 
     num_tasks = utils.get_world_size()
     data_loader_train = build_dataflow(dataset_train, is_train=True, batch_size=args.batch_size,
                                     workers=args.num_workers, is_distributed=args.distributed)
-
+    # inputs, targets = next(iter(data_loader_train))
+    # print('Dataflow Input shape of tensor: {}'.format(inputs.shape))
     val_list = os.path.join(args.data_txt_dir, val_list_name)
     val_augmentor = get_augmentor(False, args.input_size, mean, std, args.disable_scaleup,
                                 threed_data=args.threed_data, version=args.augmentor_ver,
@@ -367,9 +388,13 @@ def main(args):
     max_accuracy = 0.0
     output_dir = Path(args.output_dir)
 
-    if args.initial_checkpoint:
-        checkpoint = torch.load(args.initial_checkpoint, map_location='cpu')
+    if args.initial_checkpoint_swin:
+        checkpoint = torch.load(args.initial_checkpoint_swin, map_location='cpu')
         utils.load_checkpoint(model, checkpoint['model'])
+
+    if args.initial_checkpoint_effnt:
+        checkpoint = torch.load(args.initial_checkpoint_effnt, map_location='cpu')
+        utils.load_checkpoint(model_effnet, checkpoint['model'])
 
     if args.auto_resume:
         if args.resume == '':
@@ -396,7 +421,7 @@ def main(args):
             max_accuracy = checkpoint['max_accuracy']
 
     if args.eval:
-        test_stats = evaluate(data_loader_val, model, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
+        test_stats = evaluate(data_loader_val, model, model_effnet,device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
 
@@ -408,8 +433,8 @@ def main(args):
             data_loader_train.sampler.set_epoch(epoch)
 
         train_stats = train_one_epoch(
-            model, criterion, data_loader_train,args.num_clips,
-            optimizer, device, epoch, loss_scaler,
+            model, model_effnet, criterion, data_loader_train,args.num_clips,
+            optimizer, optimizer_effnet, device, epoch, loss_scaler, loss_scaler_effnet,
             args.clip_grad, model_ema, mixup_fn, num_tasks, True,
             amp=args.amp,
             contrastive_nomixup=args.contrastive_nomixup,
@@ -418,8 +443,9 @@ def main(args):
         )
 
         lr_scheduler.step(epoch)
+        lr_scheduler_effnet.step(epoch)
 
-        test_stats = evaluate(data_loader_val, model, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
+        test_stats = evaluate(data_loader_val, model, model_effnet, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
     
         max_accuracy = max(max_accuracy, test_stats["acc1"])
@@ -427,9 +453,11 @@ def main(args):
 
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint{}.pth'.format(epoch)]
+            checkpoint_paths_1 = [output_dir / 'checkpoint{}_effnet.pth'.format(epoch)]
             if test_stats["acc1"] == max_accuracy:
                 checkpoint_paths.append(output_dir / 'model_best.pth')
-            for checkpoint_path in checkpoint_paths:
+                checkpoint_paths_1.append(output_dir / 'model_best_effnet.pth')
+            for checkpoint_path, checkpoint_path_1 in zip(checkpoint_paths, checkpoint_paths_1):
                 state_dict = {
                     'model': model_without_ddp.state_dict(),
                     'optimizer': optimizer.state_dict(),
@@ -439,9 +467,20 @@ def main(args):
                     'scaler': loss_scaler.state_dict(),
                     'max_accuracy': max_accuracy
                 }
+                state_dict_1 = {
+                    'model': model_without_ddp_effnet.state_dict(),
+                    'optimizer': optimizer_effnet.state_dict(),
+                    'lr_scheduler': lr_scheduler_effnet.state_dict(),
+                    'epoch': epoch,
+                    'args': args,
+                    'scaler': loss_scaler_effnet.state_dict(),
+                    'max_accuracy': max_accuracy
+                }
                 if args.model_ema:
                     state_dict['model_ema'] = get_state_dict(model_ema)
                 utils.save_on_master(state_dict, checkpoint_path)
+                utils.save_on_master(state_dict_1, checkpoint_path_1)
+
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      **{f'test_{k}': v for k, v in test_stats.items()},

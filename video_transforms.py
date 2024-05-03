@@ -370,7 +370,7 @@ class Stack(object):
                 if self.roll:
                     return np.concatenate([np.array(x)[:, :, ::-1] for x in img_group], axis=2)
                 else:
-                    return np.concatenate(img_group, axis=2)
+                    return np.concatenate([np.array(x) for x in img_group], axis=2)
 
 
 class ToTorchFormatTensor(object):

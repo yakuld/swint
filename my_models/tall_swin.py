@@ -680,30 +680,39 @@ class SwinTransformer(nn.Module):
         else:
             x = x.view((-1,3*self.duration)+x.size()[2:])
 
+        # print('Shape after x.view(-1,3*8): {}'.format(x.shape))
         if self.image_mode:
             x = self.create_thumbnail(x) 
+            # print('Shape after thumbnail creation and before interpolating: {}'.format(x.shape))
             x = nn.functional.interpolate(x, size=self.img_size,mode='bilinear')
         else:
             x = rearrange(x, 'b (n t c) h w -> (b n t) c h w', t=self.duration, c=3)
-       
+        # print('Shape after thumbnail creation: {}'.format(x.shape))
         x = self.patch_embed(x)
+        # print('Shape after creating patch embedding: {}'.format(x.shape))
         if self.ape:
 #           x = x + self.absolute_pos_embed
             img_pos_embed = self.create_image_pos_embed()
             x = x + img_pos_embed
         x = self.pos_drop(x)
 
-        for layer in self.layers:
+        # x = torch.randn((4, 3136, 128))
+        for i, layer in enumerate(self.layers):
             x = layer(x)
-
+            # print('Shape after Swin transformer layer {} : {}'.format(i, x.shape))
+        
         x = self.norm(x)  # B L C
         x = self.avgpool(x.transpose(1, 2))  # B C 1
         x = torch.flatten(x, 1)
+        # print('Shape after norm, avg pool and flatten: {}'.format(x.shape))
         return x
 
     def forward(self, x):
+        
+        # print("Input shape : {}".format(x.shape))
         x = self.forward_features(x)
         x = self.head(x)
+        # print('Shape after EVERYTHING: {}'.format(x.shape))
         if not self.image_mode:
             x = x.view(-1, self.duration, self.num_classes)
             x = torch.mean(x, dim=1) 
@@ -923,4 +932,42 @@ def TALL_SWIN(pretrained=False, **kwargs):
     print(model_kwargs)
     model = _create_vision_transformer('swin_base_patch4_window7_224_22k', pretrained=pretrained, pretrained_window_size=7, **model_kwargs)
     return model
+
+# quit()
+# from timm.models import create_model
+
+# model =create_model(
+#         'TALL_SWIN',
+#         pretrained=False,
+#         duration=4,
+#         hpe_to_token = False,
+#         rel_pos = False,
+#         window_size=14,
+#         thumbnail_rows = 2,
+#         token_mask=True,
+#         online_learning = False,
+#         num_classes=2,
+#         drop_rate=0,
+#         drop_path_rate=0.1,
+#         drop_block_rate=None,
+#         use_checkpoint=False
+#     )
+
+# imgsize = (224, 224)
+# batch = 1
+# c = 3
+# d = 4
+# # img_input = torch.randn(( batch, c, imgsize[0], imgsize[1] ))
+
+# # embedder = PatchEmbed()
+
+# # out = embedder(img_input)
+
+# # print(out.shape)
+
+# x = torch.randn((batch, d*c, imgsize[0], imgsize[1]))
+# print(x.shape)
+# out = model(x)
+# print(out.shape)
+# print(out)
 
