@@ -26,20 +26,20 @@ let "count_val_f2 = count_val_f * 2"
 i=0
 
 #for real videos
-for file in $(ls ${path_real} | shuf);
+for file in $(ls ${path_real} | shuf | head -n 100);
 do
 	mkdir ${output_path}/video_${i}_folder
 	ffmpeg -i ${path_real}/${file} -vf "scale=iw:-1" -loglevel panic -q:v 0 ${output_path}/video_${i}_folder/%05d.jpg
 	
-	if [ $i -lt $count_val_r ]
-	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ${frame_path}/val.txt
-	elif [ $i -lt $count_val_r2 ]
-	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ${frame_path}/test.txt
-	else
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ${frame_path}/train.txt
-	fi
+	# if [ $i -lt $count_val_r ]
+	# then
+	# 	echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ${frame_path}/val.txt
+	# elif [ $i -lt $count_val_r2 ]
+	# then
+	echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ${frame_path}/test.txt
+	# else
+	# 	echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 0" >> ${frame_path}/train.txt
+	# fi
 	
 	let "i = i + 1"
 done
@@ -47,20 +47,20 @@ done
 j=0
 
 #for fake videos
-for file in $(ls ${path_fake} | shuf);
+for file in $(ls ${path_fake} | shuf | head -n 100);
 do
 	mkdir ${output_path}/video_${i}_folder
 	ffmpeg -i ${path_fake}/${file} -vf "scale=iw:-1" -loglevel panic -q:v 0 ${output_path}/video_${i}_folder/%05d.jpg
 	
-	if [ $j -lt $count_val_f ]
-	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ${frame_path}/val.txt
-	elif [ $j -lt $count_val_f2 ]
-	then
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ${frame_path}/test.txt
-	else
-		echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ${frame_path}/train.txt
-	fi
+	# if [ $j -lt $count_val_f ]
+	# then
+	# 	echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ${frame_path}/val.txt
+	# elif [ $j -lt $count_val_f2 ]
+	# then
+	echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ${frame_path}/test.txt
+	# else
+	# 	echo "${output_path}/video_${i}_folder 1 $(ls ${output_path}/video_${i}_folder | wc -w) 1" >> ${frame_path}/train.txt
+	# fi
 	
 	let "i = i + 1"
 	let "j = j + 1"
@@ -68,4 +68,4 @@ done
 
 echo "Done"
 
-sed -i 's$../../../dataset/DFDC/video_frames$$g' ${frame_path}/*.txt
+sed -i 's$../../../dataset/CelebDF/video_frames$$g' ${frame_path}/*.txt

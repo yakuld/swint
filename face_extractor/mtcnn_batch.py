@@ -11,7 +11,7 @@ detector = MTCNN(device='cuda:1')
 
 # # Open video file
 # cap = cv2.VideoCapture('/content/train_00000003.mp4')
-loc = '/home/yakul/dataset/DFDC/video_frames/videos'
+loc = '/home/yakul/dataset/CelebDF/video_frames/videos'
 ratio = 1.0
 video_list = [os.path.join(loc, x) for x in os.listdir(loc) if 'video' in x]
 fail = 0
@@ -28,9 +28,9 @@ for video in tqdm(video_list):
   # if not ret:
   #     break
 
-    for l, file in enumerate(os.listdir(video)):
+    for l, file in enumerate(os.listdir(video), 1):
 
-        frame_count = len(os.listdir(video)) - 1
+        frame_count = len(os.listdir(video))
     # Detect faces in the frame
         frame = cv2.imread(os.path.join(video, file))
       

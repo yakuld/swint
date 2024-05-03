@@ -214,8 +214,8 @@ def evaluate(data_loader, model, model_effnet, device, world_size, distributed=T
         
     
     
-    print('Real videos: Precision: {} , Recall: {}', 'F1 score: {} , Support: {}'.format(real[0], real[1], real[2], real[3]))
-    print('Fake videos: Precision: {} , Recall: {}', 'F1 score: {} , Support: {}'.format(fake[0], fake[1], fake[2], fake[3]))
+    print('Real videos: Precision: {} , Recall: {} , F1 score: {} , Support: {}'.format(real[0], real[1], real[2], real[3]))
+    print('Fake videos: Precision: {} , Recall: {} , F1 score: {} , Support: {}'.format(fake[0], fake[1], fake[2], fake[3]))
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 

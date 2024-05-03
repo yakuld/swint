@@ -1,8 +1,13 @@
 import argparse
 import numpy as np
+import os
+
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
 import torch
 import torch.backends.cudnn as cudnn
-import os
+
 import warnings
 
 from pathlib import Path
@@ -209,7 +214,8 @@ def get_args_parser():
     # parser.add_argument('--simclr_w', type=float, default=0., help='weights for simclr loss')
     parser.add_argument('--contrastive_nomixup', action='store_true', help='do not involve mixup in contrastive learning')
     parser.add_argument('--finetune', default=False, help='finetune model')
-    parser.add_argument('--initial_checkpoint', type=str, default='', help='path to the pretrained model')
+    parser.add_argument('--initial_checkpoint_swin', type=str, default='', help='path to the pretrained Swin model')
+    parser.add_argument('--initial_checkpoint_effnt', type=str, default='', help='path to the pretrained EfficientNet model')
 
     parser.add_argument('--hard_contrastive', action='store_true', help='use HEXA')
     # parser.add_argument('--selfdis_w', type=float, default=0., help='enable self distillation')
@@ -267,9 +273,17 @@ def main(args):
         use_checkpoint=args.use_checkpoint
     )
 
+    print(f"Creating model: EfficientNet")
+    model_effnet =create_model(
+        'EfficientNet',
+        pretrained=False,
+        duration=args.duration,
+    )
+
     # TODO: finetuning
 
     model.to(device)
+    model_effnet.to(device)
 
     model_ema = None
     if args.model_ema:
@@ -286,6 +300,7 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_parameters += sum(p.numel() for p in model_effnet.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
 
 
@@ -299,9 +314,11 @@ def main(args):
 # create data loaders w/ augmentation pipeiine
     video_data_cls = VideoDataSet
 
+    output_dir = Path(args.output_dir)
+
     num_tasks = utils.get_world_size()
 
-    val_list = os.path.join(args.data_txt_dir, val_list_name)
+    val_list = os.path.join(args.data_txt_dir, test_list_name)
     val_augmentor = get_augmentor(False, args.input_size, mean, std, args.disable_scaleup,
                                 threed_data=args.threed_data, version=args.augmentor_ver,
                                 scale_range=args.scale_range, num_clips=args.num_clips, num_crops=args.num_crops, dataset=args.dataset)
@@ -318,12 +335,16 @@ def main(args):
                                     workers=args.num_workers, is_distributed=args.distributed)
 
 
-    if args.initial_checkpoint:
-                checkpoint = torch.load(args.initial_checkpoint, map_location='cpu')
-                utils.load_checkpoint(model, checkpoint['model'])
+    if args.initial_checkpoint_swin:
+        checkpoint = torch.load(args.initial_checkpoint_swin, map_location='cpu')
+        utils.load_checkpoint(model, checkpoint['model'])
 
-                state = evaluate(data_loader_val, model, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
-                print(f"Accuracy of the network on the {len(dataset_val)} test images: {state['acc1']:.1f}%")
+    if args.initial_checkpoint_effnt:
+        checkpoint = torch.load(args.initial_checkpoint_effnt, map_location='cpu')
+        utils.load_checkpoint(model_effnet, checkpoint['model'])
+
+    state = evaluate(data_loader_val, model, model_effnet, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips, output_dir = output_dir)
+    print(f"Accuracy of the network on the {len(dataset_val)} test images: {state['acc1']:.1f}%")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DeiT evaluation script', parents=[get_args_parser()])
