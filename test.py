@@ -301,7 +301,7 @@ def main(args):
 
     num_tasks = utils.get_world_size()
 
-    val_list = os.path.join(args.data_txt_dir, val_list_name)
+    val_list = os.path.join(args.data_txt_dir, test_list_name)
     val_augmentor = get_augmentor(False, args.input_size, mean, std, args.disable_scaleup,
                                 threed_data=args.threed_data, version=args.augmentor_ver,
                                 scale_range=args.scale_range, num_clips=args.num_clips, num_crops=args.num_crops, dataset=args.dataset)
