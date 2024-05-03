@@ -421,7 +421,7 @@ def main(args):
             max_accuracy = checkpoint['max_accuracy']
 
     if args.eval:
-        test_stats = evaluate(data_loader_val, model, model_effnet,device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
+        test_stats = evaluate(data_loader_val, model, model_effnet,device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips, output_dir=output_dir)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
 
@@ -445,7 +445,7 @@ def main(args):
         lr_scheduler.step(epoch)
         lr_scheduler_effnet.step(epoch)
 
-        test_stats = evaluate(data_loader_val, model, model_effnet, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips)
+        test_stats = evaluate(data_loader_val, model, model_effnet, device, num_tasks, distributed=args.distributed, amp=args.amp, num_crops=args.num_crops, num_clips=args.num_clips, output_dir=output_dir)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
     
         max_accuracy = max(max_accuracy, test_stats["acc1"])

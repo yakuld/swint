@@ -16,7 +16,10 @@ import numpy
 from timm.data import Mixup
 from timm.utils import accuracy, ModelEma
 import utils
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_fscore_support
+import json
+import numpy as np
+from pathlib import Path
 # import clip
 
 # clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
@@ -126,7 +129,7 @@ def train_one_epoch(model: torch.nn.Module,model_effnet: torch.nn.Module, criter
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, model_effnet, device, world_size, distributed=True, amp=False, num_crops=1, num_clips=1):
+def evaluate(data_loader, model, model_effnet, device, world_size, distributed=True, amp=False, num_crops=1, num_clips=1, output_dir = Path('/home/yakul/code/output/test')):
     criterion = torch.nn.CrossEntropyLoss()
     to_np = lambda x: x.data.cpu().numpy()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -183,14 +186,36 @@ def evaluate(data_loader, model, model_effnet, device, world_size, distributed=T
 
     outputs = torch.cat(outputs, dim=0)
     targets = torch.cat(targets, dim=0)
+    _,preds = torch.max(outputs,1)
+    preds = preds.detach().cpu().numpy()
+    targets_numpy = targets.detach().cpu().numpy()
+
+    metrics = precision_recall_fscore_support(y_true=targets_numpy, y_pred=preds)
+    metrics = np.array(metrics)
+    real = metrics[:,0]
+    fake = metrics[:,1]
 
     auc_score = roc_auc_score(acc_label, acc_outputs)    
-    
+    fpr, tpr, thresholds = roc_curve(acc_label, acc_outputs)
+    curve = np.vstack((fpr, tpr, thresholds))
+
     real_loss = criterion(outputs, targets)
     metric_logger.update(loss=real_loss.item())
 
     print('* Acc@1 {top1.global_avg:.3f} AUC {auc} loss {losses.global_avg:.3f}'
           .format(top1=metric_logger.acc1,auc=auc_score,losses=metric_logger.loss))
+    
+    log_stats = {'Real video': {'Precision': real[0] , 'Recall': real[1], 'F1 score': real[2] , 'Support': real[3]}, 
+                 'Fake video' : {'Precision': fake[0] , 'Recall': fake[1], 'F1 score': fake[2] , 'Support': fake[3]}}
+    with (output_dir / "log.txt").open("a") as f:
+        f.write(json.dumps(log_stats) + "\n")
+    with (output_dir / 'curve.npy').open('wb') as f:
+        np.save(f, curve)
+        
+    
+    
+    print('Real videos: Precision: {} , Recall: {}', 'F1 score: {} , Support: {}'.format(real[0], real[1], real[2], real[3]))
+    print('Fake videos: Precision: {} , Recall: {}', 'F1 score: {} , Support: {}'.format(fake[0], fake[1], fake[2], fake[3]))
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
