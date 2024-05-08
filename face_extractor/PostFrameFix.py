@@ -26,12 +26,11 @@ def replaceFrameCount(video):
 for video in os.listdir(os.path.join(path, 'videos')):
     video_path = os.path.join(path, 'videos', video)
     isReplaced = replaceFrameCount(video)
-    if isReplaced:
-        frame_list = [int(x[:5]) for x in os.listdir(video_path)]
-        frame_list.sort()
-        for i, frameNo in enumerate(frame_list[:-1], 1):
-            # print('{}, {}'.format(i,frameNo))
-            if(frameNo != i):
-                os.rename(os.path.join(video_path, '{:05}.jpg'.format(frameNo)), os.path.join(video_path, '{:05}.jpg'.format(i)))
+
+    frame_list = [int(x[:5]) for x in os.listdir(video_path)]
+    frame_list.sort()
+    for i, frameNo in enumerate(frame_list, 1):
+        if(frameNo != i):
+            os.rename(os.path.join(video_path, '{:05}.jpg'.format(frameNo)), os.path.join(video_path, '{:05}.jpg'.format(i)))
 
 

@@ -16,7 +16,10 @@ import numpy
 from timm.data import Mixup
 from timm.utils import accuracy, ModelEma
 import utils
-from sklearn.metrics import roc_auc_score
+import numpy as np
+from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_fscore_support
+from pathlib import Path
+import json
 # import clip
 
 # clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
@@ -167,11 +170,26 @@ def evaluate(data_loader, model, device, world_size, distributed=True, amp=False
 
     outputs = torch.cat(outputs, dim=0)
     targets = torch.cat(targets, dim=0)
+    _,preds = torch.max(outputs,1)
+    preds = preds.detach().cpu().numpy()
+    targets_numpy = targets.detach().cpu().numpy()
+
+    metrics = precision_recall_fscore_support(y_true=targets_numpy, y_pred=preds)
+    metrics = np.array(metrics)
+    real = metrics[:,0]
+    fake = metrics[:,1]
 
     auc_score = roc_auc_score(acc_label, acc_outputs)    
+    fpr, tpr, thresholds = roc_curve(acc_label, acc_outputs)
     
     real_loss = criterion(outputs, targets)
     metric_logger.update(loss=real_loss.item())
+
+    output_dir = Path('/home/yakul/code/output/eval_swinOnly')
+    log_stats = {'Real video': {'Precision': real[0] , 'Recall': real[1], 'F1 score': real[2] , 'Support': real[3]}, 
+                 'Fake video' : {'Precision': fake[0] , 'Recall': fake[1], 'F1 score': fake[2] , 'Support': fake[3]}}
+    with (output_dir / "log.txt").open("a") as f:
+        f.write(json.dumps(log_stats) + "\n")
 
     print('* Acc@1 {top1.global_avg:.3f} AUC {auc} loss {losses.global_avg:.3f}'
           .format(top1=metric_logger.acc1,auc=auc_score,losses=metric_logger.loss))
