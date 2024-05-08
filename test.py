@@ -1,8 +1,13 @@
 import argparse
 import numpy as np
+
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
 import torch
 import torch.backends.cudnn as cudnn
-import os
+
 import warnings
 
 from pathlib import Path
